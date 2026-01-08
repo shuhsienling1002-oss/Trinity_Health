@@ -21,7 +21,7 @@ if 'user_district' not in st.session_state:
     st.session_state['user_district'] = "桃園區" # 預設值
 
 # ==========================================
-# 1. CSS 樣式設計 (針對手機觸控優化)
+# 1. CSS 樣式設計 (針對手機操作優化)
 # ==========================================
 st.markdown("""
     <style>
@@ -97,10 +97,10 @@ st.markdown("""
         border-left: 4px solid #5c6bc0;
     }
     
-    /* 連結按鈕 (核心修復部分) */
+    /* 連結按鈕 (手機觸控優化) */
     a.action-btn {
         display: inline-block;
-        padding: 12px 20px; /* 加大點擊範圍 */
+        padding: 12px 20px;
         color: white !important;
         text-decoration: none;
         border-radius: 8px;
@@ -110,7 +110,7 @@ st.markdown("""
         font-weight: bold;
         text-align: center;
         background-color: #0288d1; /* 藍色導航 */
-        min-width: 120px;
+        min-width: 130px;
     }
     a.phone-btn {
         background-color: #00897b; /* 綠色撥打 */
@@ -122,14 +122,12 @@ st.markdown("""
 # 2. 資料庫 (桃園版)
 # ==========================================
 
-# 桃園行政區列表
 DISTRICTS = [
     "桃園區", "中壢區", "平鎮區", "八德區", "楊梅區", 
     "蘆竹區", "龜山區", "龍潭區", "大溪區", "大園區", 
     "觀音區", "新屋區", "復興區"
 ]
 
-# 桃園主要醫院資料庫
 TAOYUAN_HOSPITALS = [
     {"name": "林口長庚紀念醫院", "dist": "龜山區", "level": 1, "tel": "03-328-1200", "addr": "桃園市龜山區復興街5號"},
     {"name": "衛福部桃園醫院", "dist": "桃園區", "level": 1, "tel": "03-369-9721", "addr": "桃園市桃園區中山路1492號"},
@@ -142,7 +140,6 @@ TAOYUAN_HOSPITALS = [
     {"name": "臺北榮總桃園分院", "dist": "桃園區", "level": 2, "tel": "03-338-4889", "addr": "桃園市桃園區成功路三段100號"},
 ]
 
-# 症狀資料庫
 SYMPTOMS_DB = {
     # --- Tab 1: 頭部/心臟 ---
     "嘴歪眼斜/單側無力 (中風)": ("RED", ["⛔ 絕對不可餵食/餵藥", "🛌 讓患者側躺防嗆到", "⏱️ 記下發作時間"]),
@@ -180,17 +177,28 @@ SYMPTOMS_DB = {
 }
 
 # ==========================================
-# 3. 邏輯處理函數 (修正重點)
+# 3. 邏輯處理函數 (⚡ 核心修正區)
 # ==========================================
 
-def get_google_maps_link(query):
+def get_google_maps_nav_link(address):
     """
-    產生 Google Maps 導航連結 (FIXED: 使用官方 Universal Link)
+    [CRITICAL FIX] 產生 Google Maps 導航連結
+    使用官方 'dir/?api=1&destination=' 格式
+    這是唯一能在手機上正確喚起 APP 導航的標準寫法
     """
-    # 將地址編碼 (例如 "桃園市" 變成 "%E6%A1%83%E5%9C%92%E5%B8%82")
+    addr_enc = urllib.parse.quote(address)
+    # dir: 進入路線規劃模式
+    # api=1: 啟用 API
+    # destination: 目的地
+    return f"https://www.google.com/maps/dir/?api=1&destination={addr_enc}"
+
+def get_google_maps_search_link(query):
+    """
+    產生 Google Maps 搜尋連結 (用於診所)
+    """
     query_enc = urllib.parse.quote(query)
-    # 這是 Google Maps 官方文件指定的跨平台導航網址格式
-    return f"https://www.google.com/maps/dir/?api=1&destination={query_enc}"
+    # search: 進入搜尋模式
+    return f"https://www.google.com/maps/search/?api=1&query={query_enc}"
 
 def find_nearest_hospitals(user_dist, severity_level):
     if severity_level == "GREEN":
@@ -307,10 +315,9 @@ def page_result():
     st.markdown(f"### 📍 {rec_title}")
     
     if level_color == "GREEN":
-        # 綠燈：Google Map 搜尋
+        # 綠燈：引導去附近診所
         search_query = f"桃園市{district} 診所"
-        # 使用 Google Map 搜尋模式
-        map_link = f"https://www.google.com/maps/search/?api=1&query={urllib.parse.quote(search_query)}"
+        map_link = get_google_maps_search_link(search_query)
         
         st.markdown(f"""
         <div class="hospital-card" style="border-left-color: #2e7d32;">
@@ -333,10 +340,10 @@ def page_result():
         for h in hospitals:
             dist_tag = f"【{h['dist']}】" if h['dist'] != district else "【本區】"
             
-            # 1. 導航連結 (FIXED)
-            map_link = get_google_maps_link(h['addr'])
+            # 1. 導航連結 (FIXED: 使用官方 API)
+            map_link = get_google_maps_nav_link(h['addr'])
             
-            # 2. 撥打連結 (FIXED: 移除 target='_blank' 避免手機瀏覽器阻擋)
+            # 2. 撥打連結 (FIXED: 純數字，無target)
             clean_tel = h['tel'].replace("-", "").replace(" ", "")
             
             st.markdown(f"""
