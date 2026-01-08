@@ -12,7 +12,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# 初始化 Session State (確保程式運作的核心變數)
+# 初始化 Session State
 if 'page' not in st.session_state:
     st.session_state['page'] = 'home'
 if 'selected_symptom' not in st.session_state:
@@ -21,7 +21,7 @@ if 'user_district' not in st.session_state:
     st.session_state['user_district'] = "桃園區" # 預設值
 
 # ==========================================
-# 1. CSS 樣式設計 (針對長輩與手機優化)
+# 1. CSS 樣式設計 (針對手機觸控優化)
 # ==========================================
 st.markdown("""
     <style>
@@ -29,7 +29,7 @@ st.markdown("""
         font-family: "Microsoft JhengHei", sans-serif;
     }
     
-    /* 一般選項按鈕優化 */
+    /* 按鈕優化 */
     .stButton>button {
         width: 100%;
         min-height: 65px;
@@ -40,7 +40,7 @@ st.markdown("""
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
 
-    /* 🚨 紅色求救按鈕 (首頁專用) 🚨 */
+    /* 🚨 紅色求救按鈕 (首頁專用) */
     .stButton>button[kind="primary"] {
         height: 90px !important;      
         font-size: 32px !important;   
@@ -57,7 +57,7 @@ st.markdown("""
         100% { transform: scale(1); }
     }
 
-    /* 醫院卡片樣式 */
+    /* 醫院卡片 */
     .hospital-card {
         background-color: #f8f9fa;
         border-left: 6px solid #1a237e;
@@ -73,7 +73,7 @@ st.markdown("""
         margin-bottom: 5px;
     }
     
-    /* 警示橫幅 (紅/黃/綠) */
+    /* 警示橫幅 */
     .alert-banner {
         padding: 15px;
         color: white;
@@ -97,19 +97,20 @@ st.markdown("""
         border-left: 4px solid #5c6bc0;
     }
     
-    /* 連結按鈕化 (導航與撥打) */
+    /* 連結按鈕 (核心修復部分) */
     a.action-btn {
         display: inline-block;
-        padding: 10px 20px;
+        padding: 12px 20px; /* 加大點擊範圍 */
         color: white !important;
         text-decoration: none;
         border-radius: 8px;
-        margin-right: 10px;
-        margin-top: 5px;
+        margin-right: 8px;
+        margin-top: 8px;
         font-size: 18px;
         font-weight: bold;
         text-align: center;
         background-color: #0288d1; /* 藍色導航 */
+        min-width: 120px;
     }
     a.phone-btn {
         background-color: #00897b; /* 綠色撥打 */
@@ -128,7 +129,7 @@ DISTRICTS = [
     "觀音區", "新屋區", "復興區"
 ]
 
-# 桃園主要醫院資料庫 (Level: 1=醫學中心/重度級, 2=區域/中度級)
+# 桃園主要醫院資料庫
 TAOYUAN_HOSPITALS = [
     {"name": "林口長庚紀念醫院", "dist": "龜山區", "level": 1, "tel": "03-328-1200", "addr": "桃園市龜山區復興街5號"},
     {"name": "衛福部桃園醫院", "dist": "桃園區", "level": 1, "tel": "03-369-9721", "addr": "桃園市桃園區中山路1492號"},
@@ -141,7 +142,7 @@ TAOYUAN_HOSPITALS = [
     {"name": "臺北榮總桃園分院", "dist": "桃園區", "level": 2, "tel": "03-338-4889", "addr": "桃園市桃園區成功路三段100號"},
 ]
 
-# 症狀資料庫 (Value: 嚴重度等級, SOP列表)
+# 症狀資料庫
 SYMPTOMS_DB = {
     # --- Tab 1: 頭部/心臟 ---
     "嘴歪眼斜/單側無力 (中風)": ("RED", ["⛔ 絕對不可餵食/餵藥", "🛌 讓患者側躺防嗆到", "⏱️ 記下發作時間"]),
@@ -179,38 +180,29 @@ SYMPTOMS_DB = {
 }
 
 # ==========================================
-# 3. 邏輯處理函數
+# 3. 邏輯處理函數 (修正重點)
 # ==========================================
 
 def get_google_maps_link(query):
     """
-    產生 Google Maps 導航連結 (使用官方 Universal Cross-Platform URL)
-    這能確保在手機上直接打開地圖 App 並進入導航模式
+    產生 Google Maps 導航連結 (FIXED: 使用官方 Universal Link)
     """
+    # 將地址編碼 (例如 "桃園市" 變成 "%E6%A1%83%E5%9C%92%E5%B8%82")
     query_enc = urllib.parse.quote(query)
-    # dir/?api=1&destination= 是官方標準寫法
+    # 這是 Google Maps 官方文件指定的跨平台導航網址格式
     return f"https://www.google.com/maps/dir/?api=1&destination={query_enc}"
 
 def find_nearest_hospitals(user_dist, severity_level):
-    """
-    根據使用者區域和嚴重程度，推薦醫院。
-    """
     if severity_level == "GREEN":
         return []
 
-    # 權重過濾
     target_levels = [1] if severity_level == "RED" else [1, 2]
-    
-    # 1. 先找「本區」符合等級的醫院
     local_matches = [h for h in TAOYUAN_HOSPITALS if h['dist'] == user_dist and h['level'] in target_levels]
     
-    # 2. 如果本區沒有大醫院，則找「全桃園」符合等級的醫院
     if not local_matches:
         if severity_level == "RED":
-            # 紅燈時，推薦所有醫學中心
             return [h for h in TAOYUAN_HOSPITALS if h['level'] == 1]
         else:
-            # 黃燈時，推薦所有醫院
             return TAOYUAN_HOSPITALS
             
     return local_matches
@@ -222,13 +214,11 @@ def find_nearest_hospitals(user_dist, severity_level):
 def page_home():
     st.title("🏥 三一協會健康諮詢")
     
-    # 溫馨叮嚀
     msg = "親愛的長輩朋友，身體不舒服不要忍耐。請先告訴我們您在哪裡，然後按下紅色按鈕。"
     st.markdown(f"""<div style="background-color:#fff3e0; padding:15px; border-radius:10px; border-left:5px solid #ff9800;"><b>💌 叮嚀：</b><br>{msg}</div>""", unsafe_allow_html=True)
     
     st.write("")
     
-    # 📍 地點選擇
     st.markdown("### 📍 第一步：您現在在哪裡？")
     st.session_state['user_district'] = st.selectbox(
         "請選擇您的行政區：", 
@@ -239,7 +229,6 @@ def page_home():
     st.write("---")
     st.markdown("### 👇 第二步：身體不舒服按這裡")
     
-    # 首頁紅色大按鈕
     if st.button("🆘 救命 / 不舒服", type="primary", use_container_width=True):
         st.session_state['page'] = 'symptom_select'
         st.rerun()
@@ -258,10 +247,8 @@ def page_symptom_select():
     
     st.info(f"📍 目前位置設定：**桃園市 {st.session_state['user_district']}**")
     
-    # 分頁顯示症狀
     tab1, tab2, tab3, tab4 = st.tabs(["🧠 頭/心臟", "🤢 肚子/內科", "🦴 跌倒/外傷", "💊 發燒/其他"])
     
-    # 輔助函式：產生按鈕
     def create_buttons(symptom_list, container):
         cols = container.columns(2)
         for i, sym in enumerate(symptom_list):
@@ -302,10 +289,8 @@ def page_result():
     symptom = st.session_state['selected_symptom']
     district = st.session_state['user_district']
     
-    # 取得症狀資料
     level_color, sop_list = SYMPTOMS_DB.get(symptom, ("GREEN", []))
     
-    # 頂部警示條
     if level_color == "RED":
         st.markdown('<div class="alert-banner bg-red">🚨 生命危急！去大醫院</div>', unsafe_allow_html=True)
         rec_title = "建議前往：醫學中心 / 大型急診"
@@ -319,13 +304,13 @@ def page_result():
     st.markdown(f"### 您的狀況：{symptom}")
     st.write("---")
 
-    # === 動態醫院推薦邏輯 ===
     st.markdown(f"### 📍 {rec_title}")
     
     if level_color == "GREEN":
-        # 綠燈：引導去附近診所
+        # 綠燈：Google Map 搜尋
         search_query = f"桃園市{district} 診所"
-        map_link = get_google_maps_link(search_query)
+        # 使用 Google Map 搜尋模式
+        map_link = f"https://www.google.com/maps/search/?api=1&query={urllib.parse.quote(search_query)}"
         
         st.markdown(f"""
         <div class="hospital-card" style="border-left-color: #2e7d32;">
@@ -339,23 +324,19 @@ def page_result():
         """, unsafe_allow_html=True)
         
     else:
-        # 紅/黃燈：從資料庫撈醫院
         hospitals = find_nearest_hospitals(district, level_color)
         
         if not hospitals:
-            # 萬一該區無醫院，顯示所有大醫院
             st.warning(f"⚠️ {district} 附近無大型急救醫院，建議前往鄰近的大醫院：")
             hospitals = [h for h in TAOYUAN_HOSPITALS if h['level'] == 1]
 
-        # 顯示醫院卡片
         for h in hospitals:
-            # 判斷是否為跨區推薦
             dist_tag = f"【{h['dist']}】" if h['dist'] != district else "【本區】"
             
-            # 1. 產生導航連結 (使用新版函數)
+            # 1. 導航連結 (FIXED)
             map_link = get_google_maps_link(h['addr'])
             
-            # 2. 處理電話號碼 (移除連字號，確保手機可撥打)
+            # 2. 撥打連結 (FIXED: 移除 target='_blank' 避免手機瀏覽器阻擋)
             clean_tel = h['tel'].replace("-", "").replace(" ", "")
             
             st.markdown(f"""
@@ -372,7 +353,6 @@ def page_result():
 
     st.write("---")
     
-    # SOP
     st.markdown("### 📋 現場該做什麼？")
     for step in sop_list:
         st.markdown(f'<div class="sop-text">{step}</div>', unsafe_allow_html=True)
