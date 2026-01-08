@@ -18,10 +18,10 @@ if 'page' not in st.session_state:
 if 'selected_symptom' not in st.session_state:
     st.session_state['selected_symptom'] = None
 if 'user_district' not in st.session_state:
-    st.session_state['user_district'] = "桃園區" # 預設值
+    st.session_state['user_district'] = "桃園區" 
 
 # ==========================================
-# 1. CSS 樣式設計 (針對手機操作優化)
+# 1. CSS 樣式設計 (針對 LINE 與深色模式修復)
 # ==========================================
 st.markdown("""
     <style>
@@ -40,7 +40,7 @@ st.markdown("""
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
 
-    /* 🚨 紅色求救按鈕 (首頁專用) */
+    /* 🚨 紅色求救按鈕 */
     .stButton>button[kind="primary"] {
         height: 90px !important;      
         font-size: 32px !important;   
@@ -59,7 +59,7 @@ st.markdown("""
 
     /* 醫院卡片 */
     .hospital-card {
-        background-color: #f8f9fa;
+        background-color: #f8f9fa; /* 強制淺灰背景 */
         border-left: 6px solid #1a237e;
         padding: 15px;
         margin-bottom: 15px;
@@ -69,10 +69,39 @@ st.markdown("""
     .hospital-name {
         font-size: 24px;
         font-weight: 900;
-        color: #1a237e;
+        color: #1a237e !important; /* 強制深藍色，避免被深色模式影響 */
         margin-bottom: 5px;
     }
     
+    /* 連結按鈕 (LINE 瀏覽器相容性優化) */
+    a.action-btn {
+        display: inline-block;
+        padding: 12px 10px;
+        color: white !important;
+        text-decoration: none;
+        border-radius: 8px;
+        margin-right: 5px;
+        margin-top: 8px;
+        font-size: 18px;
+        font-weight: bold;
+        text-align: center;
+        background-color: #0288d1; 
+        min-width: 45%; /* 讓按鈕並排更好看 */
+    }
+    a.phone-btn {
+        background-color: #00897b;
+    }
+    
+    /* 修正深色模式下的文字顏色問題 */
+    .info-text-black {
+        color: #333333 !important; /* 強制黑色文字 */
+    }
+    .hospital-info-text {
+        font-size: 20px; 
+        margin-bottom:10px;
+        color: #333333 !important; /* 強制黑色，因為背景是淺色的 */
+    }
+
     /* 警示橫幅 */
     .alert-banner {
         padding: 15px;
@@ -95,25 +124,7 @@ st.markdown("""
         background: #eef;
         border-radius: 5px;
         border-left: 4px solid #5c6bc0;
-    }
-    
-    /* 連結按鈕 (手機觸控優化) */
-    a.action-btn {
-        display: inline-block;
-        padding: 12px 20px;
-        color: white !important;
-        text-decoration: none;
-        border-radius: 8px;
-        margin-right: 8px;
-        margin-top: 8px;
-        font-size: 18px;
-        font-weight: bold;
-        text-align: center;
-        background-color: #0288d1; /* 藍色導航 */
-        min-width: 130px;
-    }
-    a.phone-btn {
-        background-color: #00897b; /* 綠色撥打 */
+        color: #000000 !important; /* SOP文字強制黑色 */
     }
     </style>
     """, unsafe_allow_html=True)
@@ -177,27 +188,24 @@ SYMPTOMS_DB = {
 }
 
 # ==========================================
-# 3. 邏輯處理函數 (⚡ 核心修正區)
+# 3. 邏輯處理函數 (⚡ 針對 LINE 修正)
 # ==========================================
 
 def get_google_maps_nav_link(address):
     """
-    [CRITICAL FIX] 產生 Google Maps 導航連結
-    使用官方 'dir/?api=1&destination=' 格式
-    這是唯一能在手機上正確喚起 APP 導航的標準寫法
+    產生 Google Maps 導航連結
+    注意：為了相容 LINE，我們使用最標準的 https://www.google.com/maps/dir/...
+    這樣 LINE 才會知道要跳轉去 App，而不是在內部硬開
     """
     addr_enc = urllib.parse.quote(address)
-    # dir: 進入路線規劃模式
-    # api=1: 啟用 API
-    # destination: 目的地
+    # 這是最通用的標準協議
     return f"https://www.google.com/maps/dir/?api=1&destination={addr_enc}"
 
 def get_google_maps_search_link(query):
     """
-    產生 Google Maps 搜尋連結 (用於診所)
+    產生 Google Maps 搜尋連結
     """
     query_enc = urllib.parse.quote(query)
-    # search: 進入搜尋模式
     return f"https://www.google.com/maps/search/?api=1&query={query_enc}"
 
 def find_nearest_hospitals(user_dist, severity_level):
@@ -222,8 +230,15 @@ def find_nearest_hospitals(user_dist, severity_level):
 def page_home():
     st.title("🏥 三一協會健康諮詢")
     
+    # [VISUAL FIX] 強制文字顏色為深咖啡色 (#5d4037)
+    # 這樣就算手機開深色模式，這塊背景是淺色，文字依然是深色，看得清楚
     msg = "親愛的長輩朋友，身體不舒服不要忍耐。請先告訴我們您在哪裡，然後按下紅色按鈕。"
-    st.markdown(f"""<div style="background-color:#fff3e0; padding:15px; border-radius:10px; border-left:5px solid #ff9800;"><b>💌 叮嚀：</b><br>{msg}</div>""", unsafe_allow_html=True)
+    st.markdown(f"""
+    <div style="background-color:#fff3e0; padding:15px; border-radius:10px; border-left:5px solid #ff9800;">
+        <b style="color:#5d4037;">💌 叮嚀：</b><br>
+        <span style="color:#5d4037;">{msg}</span>
+    </div>
+    """, unsafe_allow_html=True)
     
     st.write("")
     
@@ -315,18 +330,18 @@ def page_result():
     st.markdown(f"### 📍 {rec_title}")
     
     if level_color == "GREEN":
-        # 綠燈：引導去附近診所
+        # 綠燈：Google Map 搜尋
         search_query = f"桃園市{district} 診所"
         map_link = get_google_maps_search_link(search_query)
         
         st.markdown(f"""
         <div class="hospital-card" style="border-left-color: #2e7d32;">
             <div class="hospital-name">🏡 附近的診所</div>
-            <div style="font-size: 20px; color: #555;">
+            <div class="hospital-info-text">
                 您的狀況屬於輕症，建議前往附近的診所就醫，或在家多休息。<br>
             </div>
             <br>
-            <a href="{map_link}" target="_blank" class="action-btn">🗺️ 點此搜尋附近診所</a>
+            <a href="{map_link}" target="_blank" class="action-btn">🗺️ 搜尋診所</a>
         </div>
         """, unsafe_allow_html=True)
         
@@ -340,17 +355,17 @@ def page_result():
         for h in hospitals:
             dist_tag = f"【{h['dist']}】" if h['dist'] != district else "【本區】"
             
-            # 1. 導航連結 (FIXED: 使用官方 API)
+            # 1. 導航連結 (使用標準 https，LINE 才能識別跳轉)
             map_link = get_google_maps_nav_link(h['addr'])
             
-            # 2. 撥打連結 (FIXED: 純數字，無target)
+            # 2. 撥打連結 (純數字)
             clean_tel = h['tel'].replace("-", "").replace(" ", "")
             
             st.markdown(f"""
             <div class="hospital-card">
                 <div class="hospital-name">{dist_tag} {h['name']}</div>
-                <div style="font-size: 20px; margin-bottom:10px;">
-                    📞 電話：<a href="tel:{clean_tel}" style="text-decoration:none; color:#1a237e;">{h['tel']}</a><br>
+                <div class="hospital-info-text">
+                    📞 電話：<a href="tel:{clean_tel}" style="text-decoration:none; color:#333333;">{h['tel']}</a><br>
                     🏥 地址：{h['addr']}
                 </div>
                 <a href="{map_link}" target="_blank" class="action-btn">🗺️ 導航出發</a>
