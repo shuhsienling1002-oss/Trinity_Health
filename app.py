@@ -21,7 +21,7 @@ if 'user_district' not in st.session_state:
     st.session_state['user_district'] = "桃園區" 
 
 # ==========================================
-# 1. CSS 樣式設計 (針對 LINE 與深色模式修復)
+# 1. CSS 樣式 (針對深色模式與 LINE 強制修復)
 # ==========================================
 st.markdown("""
     <style>
@@ -29,7 +29,7 @@ st.markdown("""
         font-family: "Microsoft JhengHei", sans-serif;
     }
     
-    /* 按鈕優化 */
+    /* 按鈕優化：加大、加陰影 */
     .stButton>button {
         width: 100%;
         min-height: 65px;
@@ -37,7 +37,7 @@ st.markdown("""
         font-weight: bold;
         border-radius: 12px;
         margin-bottom: 10px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        box-shadow: 0 3px 6px rgba(0,0,0,0.15);
     }
 
     /* 🚨 紅色求救按鈕 */
@@ -57,80 +57,90 @@ st.markdown("""
         100% { transform: scale(1); }
     }
 
-    /* 醫院卡片 */
+    /* 醫院卡片：強制背景色，避免深色模式影響 */
     .hospital-card {
-        background-color: #f8f9fa; /* 強制淺灰背景 */
+        background-color: #f8f9fa !important; 
         border-left: 6px solid #1a237e;
         padding: 15px;
         margin-bottom: 15px;
         border-radius: 8px;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
     }
     .hospital-name {
         font-size: 24px;
         font-weight: 900;
-        color: #1a237e !important; /* 強制深藍色，避免被深色模式影響 */
+        color: #1a237e !important; /* 強制深藍 */
         margin-bottom: 5px;
     }
     
-    /* 連結按鈕 (LINE 瀏覽器相容性優化) */
+    /* 連結按鈕 */
     a.action-btn {
         display: inline-block;
-        padding: 12px 10px;
+        padding: 12px 0;
+        width: 48%; /* 讓按鈕並排 */
         color: white !important;
         text-decoration: none;
         border-radius: 8px;
-        margin-right: 5px;
         margin-top: 8px;
         font-size: 18px;
         font-weight: bold;
         text-align: center;
         background-color: #0288d1; 
-        min-width: 45%; /* 讓按鈕並排更好看 */
+        margin-right: 2%;
     }
     a.phone-btn {
         background-color: #00897b;
+        margin-right: 0;
     }
     
-    /* 修正深色模式下的文字顏色問題 */
-    .info-text-black {
-        color: #333333 !important; /* 強制黑色文字 */
+    /* [重要修正] 叮嚀區塊強制黑字 */
+    .care-box {
+        background-color: #fff3e0 !important;
+        padding: 15px;
+        border-radius: 10px;
+        border-left: 5px solid #ff9800;
+        margin-bottom: 20px;
     }
-    .hospital-info-text {
-        font-size: 20px; 
-        margin-bottom:10px;
-        color: #333333 !important; /* 強制黑色，因為背景是淺色的 */
+    .care-title {
+        color: #e65100 !important; /* 深橘色標題 */
+        font-weight: bold;
+        font-size: 20px;
+    }
+    .care-text {
+        color: #3e2723 !important; /* 深咖啡色文字 */
+        font-size: 18px;
+        line-height: 1.5;
     }
 
+    /* SOP 文字 */
+    .sop-text {
+        font-size: 20px;
+        margin: 5px 0;
+        padding: 10px;
+        background: #e3f2fd !important;
+        border-radius: 5px;
+        border-left: 4px solid #1565c0;
+        color: #0d47a1 !important; /* 強制深藍字 */
+    }
+    
     /* 警示橫幅 */
     .alert-banner {
         padding: 15px;
-        color: white;
+        color: white !important;
         text-align: center;
         font-size: 24px;
         font-weight: bold;
         border-radius: 8px;
         margin-bottom: 15px;
     }
-    .bg-red { background-color: #c62828; }
-    .bg-yellow { background-color: #fbc02d; color: black !important; }
-    .bg-green { background-color: #2e7d32; }
-    
-    /* SOP 文字 */
-    .sop-text {
-        font-size: 20px;
-        margin: 5px 0;
-        padding: 10px;
-        background: #eef;
-        border-radius: 5px;
-        border-left: 4px solid #5c6bc0;
-        color: #000000 !important; /* SOP文字強制黑色 */
-    }
+    .bg-red { background-color: #c62828 !important; }
+    .bg-yellow { background-color: #fbc02d !important; color: black !important; }
+    .bg-green { background-color: #2e7d32 !important; }
     </style>
     """, unsafe_allow_html=True)
 
 # ==========================================
-# 2. 資料庫 (桃園版)
+# 2. 資料庫
 # ==========================================
 
 DISTRICTS = [
@@ -152,7 +162,6 @@ TAOYUAN_HOSPITALS = [
 ]
 
 SYMPTOMS_DB = {
-    # --- Tab 1: 頭部/心臟 ---
     "嘴歪眼斜/單側無力 (中風)": ("RED", ["⛔ 絕對不可餵食/餵藥", "🛌 讓患者側躺防嗆到", "⏱️ 記下發作時間"]),
     "劇烈頭痛 (像被雷打到)": ("RED", ["🛌 保持安靜躺下", "🚑 立即呼叫救護車"]),
     "意識不清/叫不醒": ("RED", ["🗣️ 大聲呼喚檢查反應", "🛌 側躺暢通呼吸道"]),
@@ -161,24 +170,18 @@ SYMPTOMS_DB = {
     "胸痛 (像石頭壓/冒冷汗)": ("RED", ["⛔ 停止所有活動", "🪑 採半坐臥姿勢", "💊 若有舌下含片可使用"]),
     "心跳很快/心悸": ("YELLOW", ["🪑 坐下深呼吸", "⌚ 測量脈搏"]),
     "呼吸困難/喘不過氣": ("RED", ["🪑 端坐呼吸(坐著身體前傾)", "👕 解開衣領鈕扣"]),
-    
-    # --- Tab 2: 肚子/內科 ---
     "咳血": ("RED", ["🥣 保留檢體", "🚑 立即就醫"]),
     "肚子劇痛 (按壓會痛)": ("YELLOW", ["⛔ 暫時禁食", "🌡️ 量測體溫"]),
     "吐血/解黑便": ("RED", ["⛔ 禁止飲食", "🚑 收集嘔吐物/拍照"]), 
     "嚴重拉肚子/嘔吐": ("YELLOW", ["💧 補充水分/電解質", "💊 攜帶目前用藥"]),
     "無法排尿 (脹痛)": ("YELLOW", ["⛔ 勿強壓膀胱", "🏥 需導尿"]),
     "誤食農藥/毒物": ("RED", ["📸 拍下農藥罐子", "⛔ 不要催吐", "🚑 叫救護車"]),
-
-    # --- Tab 3: 外傷/跌倒 ---
     "骨折 (肢體變形)": ("RED", ["⛔ 不要移動患肢", "🪵 就地固定(用紙板/木棍)"]),
     "嚴重割傷 (血流不止)": ("YELLOW", ["🩹 直接加壓止血", "✋ 抬高患肢"]),
     "一般跌倒 (皮肉傷)": ("GREEN", ["🧼 清水沖洗傷口", "🩹 消毒包紮"]),
     "跌倒 (撞到頭/想吐)": ("RED", ["⛔ 不要睡著，觀察意識", "🚑 腦震盪警訊"]),
     "被蛇/虎頭蜂咬傷": ("YELLOW", ["📸 記住蛇/蜂的特徵", "⛔ 勿切開傷口", "⌚ 取下戒指"]),
     "被狗/動物咬傷": ("YELLOW", ["🧼 大量清水沖洗", "🏥 需打狂犬病疫苗"]),
-
-    # --- Tab 4: 其他 ---
     "發高燒 (>38.5度)": ("YELLOW", ["💧 多喝水", "👕 穿透氣衣物散熱"]),
     "血糖過低 (冒冷汗/手抖)": ("YELLOW", ["🍬 吃糖果/喝果汁", "🛌 休息觀察"]),
     "皮膚紅腫/長疹子": ("GREEN", ["📷 拍照記錄", "⛔ 勿抓破"]),
@@ -188,39 +191,28 @@ SYMPTOMS_DB = {
 }
 
 # ==========================================
-# 3. 邏輯處理函數 (⚡ 針對 LINE 修正)
+# 3. 邏輯函數
 # ==========================================
 
 def get_google_maps_nav_link(address):
-    """
-    產生 Google Maps 導航連結
-    注意：為了相容 LINE，我們使用最標準的 https://www.google.com/maps/dir/...
-    這樣 LINE 才會知道要跳轉去 App，而不是在內部硬開
-    """
+    # 使用 Google Maps 官方 Universal Link
     addr_enc = urllib.parse.quote(address)
-    # 這是最通用的標準協議
     return f"https://www.google.com/maps/dir/?api=1&destination={addr_enc}"
 
 def get_google_maps_search_link(query):
-    """
-    產生 Google Maps 搜尋連結
-    """
     query_enc = urllib.parse.quote(query)
     return f"https://www.google.com/maps/search/?api=1&query={query_enc}"
 
 def find_nearest_hospitals(user_dist, severity_level):
     if severity_level == "GREEN":
         return []
-
     target_levels = [1] if severity_level == "RED" else [1, 2]
     local_matches = [h for h in TAOYUAN_HOSPITALS if h['dist'] == user_dist and h['level'] in target_levels]
-    
     if not local_matches:
         if severity_level == "RED":
             return [h for h in TAOYUAN_HOSPITALS if h['level'] == 1]
         else:
             return TAOYUAN_HOSPITALS
-            
     return local_matches
 
 # ==========================================
@@ -230,13 +222,23 @@ def find_nearest_hospitals(user_dist, severity_level):
 def page_home():
     st.title("🏥 三一協會健康諮詢")
     
-    # [VISUAL FIX] 強制文字顏色為深咖啡色 (#5d4037)
-    # 這樣就算手機開深色模式，這塊背景是淺色，文字依然是深色，看得清楚
+    # [修正] LINE 瀏覽器教學區塊
+    st.markdown("""
+    <div style="background-color:#ffebee; border:2px solid #ef5350; border-radius:10px; padding:10px; margin-bottom:15px; text-align:center;">
+        <b style="color:#c62828; font-size:18px;">⚠️ 如果按鈕沒反應</b><br>
+        <span style="color:#333; font-size:16px;">
+            請點選右上角的「三個點 (⋮)」<br>
+            👉 選擇 <b>「使用預設瀏覽器開啟」</b>
+        </span>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # [修正] 叮嚀區塊：強制文字顏色，解決深色模式看不到字的問題
     msg = "親愛的長輩朋友，身體不舒服不要忍耐。請先告訴我們您在哪裡，然後按下紅色按鈕。"
     st.markdown(f"""
-    <div style="background-color:#fff3e0; padding:15px; border-radius:10px; border-left:5px solid #ff9800;">
-        <b style="color:#5d4037;">💌 叮嚀：</b><br>
-        <span style="color:#5d4037;">{msg}</span>
+    <div class="care-box">
+        <div class="care-title">💌 叮嚀：</div>
+        <div class="care-text">{msg}</div>
     </div>
     """, unsafe_allow_html=True)
     
@@ -311,7 +313,6 @@ def go_to_result(symptom):
 def page_result():
     symptom = st.session_state['selected_symptom']
     district = st.session_state['user_district']
-    
     level_color, sop_list = SYMPTOMS_DB.get(symptom, ("GREEN", []))
     
     if level_color == "RED":
@@ -326,46 +327,36 @@ def page_result():
 
     st.markdown(f"### 您的狀況：{symptom}")
     st.write("---")
-
     st.markdown(f"### 📍 {rec_title}")
     
     if level_color == "GREEN":
-        # 綠燈：Google Map 搜尋
         search_query = f"桃園市{district} 診所"
         map_link = get_google_maps_search_link(search_query)
-        
         st.markdown(f"""
         <div class="hospital-card" style="border-left-color: #2e7d32;">
             <div class="hospital-name">🏡 附近的診所</div>
-            <div class="hospital-info-text">
+            <div style="font-size: 18px; color: #333 !important; margin-bottom:10px;">
                 您的狀況屬於輕症，建議前往附近的診所就醫，或在家多休息。<br>
             </div>
-            <br>
             <a href="{map_link}" target="_blank" class="action-btn">🗺️ 搜尋診所</a>
         </div>
         """, unsafe_allow_html=True)
-        
     else:
         hospitals = find_nearest_hospitals(district, level_color)
-        
         if not hospitals:
             st.warning(f"⚠️ {district} 附近無大型急救醫院，建議前往鄰近的大醫院：")
             hospitals = [h for h in TAOYUAN_HOSPITALS if h['level'] == 1]
 
         for h in hospitals:
             dist_tag = f"【{h['dist']}】" if h['dist'] != district else "【本區】"
-            
-            # 1. 導航連結 (使用標準 https，LINE 才能識別跳轉)
             map_link = get_google_maps_nav_link(h['addr'])
-            
-            # 2. 撥打連結 (純數字)
             clean_tel = h['tel'].replace("-", "").replace(" ", "")
             
             st.markdown(f"""
             <div class="hospital-card">
                 <div class="hospital-name">{dist_tag} {h['name']}</div>
-                <div class="hospital-info-text">
-                    📞 電話：<a href="tel:{clean_tel}" style="text-decoration:none; color:#333333;">{h['tel']}</a><br>
+                <div style="font-size: 20px; margin-bottom:10px; color:#333 !important;">
+                    📞 電話：<a href="tel:{clean_tel}" style="text-decoration:none; color:#1a237e; font-weight:bold;">{h['tel']}</a><br>
                     🏥 地址：{h['addr']}
                 </div>
                 <a href="{map_link}" target="_blank" class="action-btn">🗺️ 導航出發</a>
@@ -374,13 +365,11 @@ def page_result():
             """, unsafe_allow_html=True)
 
     st.write("---")
-    
     st.markdown("### 📋 現場該做什麼？")
     for step in sop_list:
         st.markdown(f'<div class="sop-text">{step}</div>', unsafe_allow_html=True)
         
     st.write("---")
-    
     col1, col2 = st.columns(2)
     with col1:
         if st.button("🔄 重選"):
@@ -394,7 +383,6 @@ def page_result():
 # ==========================================
 # 5. 主程式入口
 # ==========================================
-
 if st.session_state['page'] == 'home':
     page_home()
 elif st.session_state['page'] == 'symptom_select':
